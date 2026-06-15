@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Train Tracker - Control Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        /* Sfumatura personalizzata per la linea verticale della timeline */
+        .timeline-line::before {
+            content: '';
+            position: absolute;
+            left: 23px;
+            top: 24px;
+            bottom: 24px;
+            width: 2px;
+            background: linear-gradient(to bottom, #3b82f6 var(--percorso-passato, 0%), #1e293b var(--percorso-passato, 0%));
+            z-index: 0;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen p-4 md:p-8 selection:bg-blue-500/30">
+
+    <div class="max-w-xl mx-auto">
+        <header class="text-center mb-8">
+            <h1
+                class="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">
+                🚀 LIVE TRAIN TRACKER
+            </h1>
+            <p class="text-xs text-slate-500 mt-1 font-mono">REVERSE ENGINEERED VIAGGIATRENO ENGINE v2.0</p>
+        </header>
+
+        <div
+            class="flex gap-2 bg-slate-900/80 p-2 rounded-2xl border border-slate-800/80 shadow-2xl mb-6 backdrop-blur-md">
+            <input type="text" id="trenoInput" placeholder="Inserisci numero treno (es. 17296 o 9544)"
+                class="w-full px-4 py-3 bg-transparent rounded-xl focus:outline-none text-base placeholder:text-slate-600 font-mono tracking-wider"
+                onkeypress="if(event.key === 'Enter') cercaTreno()">
+            <button onclick="cercaTreno()"
+                class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-blue-900/40 cursor-pointer active:scale-98">
+                Traccia
+            </button>
+        </div>
+
+        <!-- Auto Refresh Control Widget -->
+        <div id="autoRefreshWidget"
+            class="hidden bg-slate-900/40 border border-slate-800/60 p-4 rounded-2xl flex items-center justify-between transition-all duration-300 backdrop-blur-md mb-6 animate-fade-in">
+            <div class="flex items-center gap-3">
+                <span class="relative flex h-3 w-3">
+                    <span id="autoRefreshStatusPing"
+                        class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
+                    <span id="autoRefreshStatusDot"
+                        class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <div>
+                    <p class="text-xs font-bold tracking-wide text-slate-200">Aggiornamento Automatico</p>
+                    <p id="autoRefreshStatusText" class="text-[10px] font-mono text-slate-500 mt-0.5">Prossimo controllo
+                        in 120s</p>
+                </div>
+            </div>
+            <button id="btnToggleAutoRefresh" onclick="toggleAutoRefresh()"
+                class="bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/60 font-mono text-[10px] font-black tracking-wider px-3.5 py-1.5 rounded-lg transition-all cursor-pointer active:scale-98 shadow-sm">
+                SOSPENDI
+            </button>
+        </div>
+
+        <div id="loader" class="hidden text-center py-8">
+            <div
+                class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]">
+            </div>
+            <p class="text-xs text-slate-500 font-mono mt-2">Interrogazione nodi periferici...</p>
+        </div>
+
+        <div id="infoBox"
+            class="hidden bg-slate-900 border border-slate-800/60 rounded-2xl p-5 mb-6 shadow-xl transition-all duration-300">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <span id="txtCategoria"
+                        class="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-black tracking-widest px-2.5 py-1 rounded-md uppercase mr-2 font-mono"></span>
+                    <h2 id="txtTreno" class="text-2xl font-black inline-block tracking-tight text-white"></h2>
+                </div>
+                <span id="txtRitardo" class="text-xs font-bold px-3 py-1.5 rounded-lg font-mono"></span>
+            </div>
+            <div class="flex items-center gap-2 text-slate-400 text-sm font-semibold border-t border-slate-800/60 pt-3">
+                <span class="text-blue-500">🛤️</span>
+                <p id="txtTratta" class="tracking-wide"></p>
+            </div>
+        </div>
+
+        <div id="timelineContainer" class="relative hidden">
+            <div id="txtUltimoRilevamento"
+                class="text-xs text-slate-400 bg-slate-900 border border-slate-800 rounded-xl p-3 mb-6 font-mono flex items-center gap-2">
+            </div>
+
+            <div id="timeline" class="timeline-line relative space-y-0 pl-1">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Utility per convertire timestamp Unix millisecondi in stringa orario HH:MM
+        function formattaOra(timestamp) {
+            if (!timestamp) return '--:--';
+            return new Date(timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Variabili globali per la gestione dell'Auto Refresh (polling ogni 2 minuti = 120s)
+        let isAutoRefreshActive = false;
+        let countdownTimer = null;
+        const REFRESH_PERIOD = 120; // secondi
+        let refreshSecondsLeft = REFRESH_PERIOD;
+        let isStazioniExpanded = false; // Stato dell'espansione delle stazioni passate
+
+        async function cercaTreno(isAuto = false) {
+            const numero = document.getElementById('trenoInput').value.trim();
+            if (!numero) return;
+
+            // Reset e attivazione loader
+            const loader = document.getElementById('loader');
+            const infoBox = document.getElementById('infoBox');
+            const timelineContainer = document.getElementById('timelineContainer');
+            const autoWidget = document.getElementById('autoRefreshWidget');
+
+            // Reset dello stato di espansione solo se si tratta di una nuova ricerca manuale
+            if (!isAuto) {
+                isStazioniExpanded = false;
+                loader.classList.remove('hidden');
+                infoBox.classList.add('hidden');
+                timelineContainer.classList.add('hidden');
+            }
+
+            try {
+                const res = await fetch(`/api/treno/${numero}`);
+                if (!res.ok) throw new Error("Treno non trovato");
+                const data = await res.json();
+
+                // Spegni loader e mostra blocchi interfaccia
+                loader.classList.add('hidden');
+                infoBox.classList.remove('hidden');
+                timelineContainer.classList.remove('hidden');
+
+                // Popolamento Header Info Generali
+                document.getElementById('txtTreno').innerText = `Treno ${data.numero}`;
+                document.getElementById('txtCategoria').innerText = data.categoria || 'REG';
+                document.getElementById('txtTratta').innerText = `${data.origine}  ➔  ${data.destinazione}`;
+                document.getElementById('txtUltimoRilevamento').innerHTML = `<span class="text-blue-500">📡</span> Rilevamento telemetria: <span class="text-slate-200 font-bold">${data.ultimoRilevamento.nodo}</span> alle ore <span class="text-blue-400 font-bold">${data.ultimoRilevamento.ora}</span>`;
+
+                // Configurazione badge ritardo
+                const rBox = document.getElementById('txtRitardo');
+                rBox.innerText = data.statoGenerale.toUpperCase();
+                if (data.ritardo > 0) {
+                    rBox.className = "text-xs font-bold px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 font-mono";
+                } else {
+                    rBox.className = "text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono";
+                }
+
+                const container = document.getElementById('timeline');
+                container.innerHTML = ''; // Svuota timeline precedente
+
+                // Calcolo indici per la gestione grafica della barra verticale retrostante
+                let ultimoPassatoIdx = -1;
+                data.stazioni.forEach((s, idx) => {
+                    if (s.passato) {
+                        ultimoPassatoIdx = idx;
+                    }
+                });
+
+                // Calcolo dinamico della percentuale di completamento per sfumare la linea della timeline
+                const percentualeLinea = data.stazioni.length > 1 ? (ultimoPassatoIdx / (data.stazioni.length - 1)) * 100 : 0;
+                document.querySelector('.timeline-line').style.setProperty('--percorso-passato', `${percentualeLinea}%`);
+
+                // Identifichiamo quali stazioni sono "intermedie passate"
+                // Sono stazioni passate (s.passato === true) che NON sono la prima (idx > 0) e NON sono l'ultima passata (idx < ultimoPassatoIdx)
+                const intermediatePassedIndices = [];
+                data.stazioni.forEach((s, idx) => {
+                    if (s.passato && idx > 0 && idx < ultimoPassatoIdx) {
+                        intermediatePassedIndices.push(idx);
+                    }
+                });
+
+                const shouldCollapse = intermediatePassedIndices.length > 2;
+
+                let collapsedContainer = null;
+                if (shouldCollapse) {
+                    collapsedContainer = document.createElement('div');
+                    collapsedContainer.id = "collapsedStazioni";
+                    collapsedContainer.className = isStazioniExpanded ? "transition-all duration-300" : "hidden transition-all duration-300";
+                }
+
+                // Ciclo di rendering sui nodi
+                data.stazioni.forEach((s, idx) => {
+
+                    // 1. Costruzione blocco Stazione Commerciale Standard
+                    const rigaStazione = document.createElement('div');
+                    rigaStazione.className = "mb-4 ml-12 relative z-10 animate-fade-in";
+
+                    let pallinoClass = "bg-slate-950 border-slate-800 text-slate-700";
+                    let containerClass = "bg-slate-900/40 border-slate-900/80";
+
+                    if (s.passato) {
+                        pallinoClass = "bg-blue-600 border-blue-400 text-blue-200 shadow-[0_0_12px_rgba(59,130,246,0.5)]";
+                        containerClass = "bg-slate-900 border-slate-800";
+                    }
+
+                    rigaStazione.innerHTML = `
+                        <span class="absolute -left-[37px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full border-2 ${pallinoClass}"></span>
+                        
+                        <div class="flex justify-between items-start border p-2.5 rounded-xl transition-all duration-200 hover:bg-slate-900/90 ${containerClass}">
+                            <div>
+                                <p class="text-slate-100 text-sm font-bold tracking-wide">🚉 ${s.stazione}</p>
+                                <p class="text-[10px] font-mono text-slate-500 mt-1">
+                                    BIN PROG: <span class="text-slate-400">${s.binarioProgrammato}</span> | 
+                                    EFF: <span class="${s.passato ? 'text-blue-400 font-bold' : 'text-slate-500'}">${s.binarioEffettivo}</span>
+                                </p>
+                            </div>
+                            <div class="text-right font-mono text-xs">
+                                <p class="text-slate-500">PROG: ${formattaOra(s.programmata)}</p>
+                                <p class="${s.passato ? 'text-blue-400 font-bold' : 'text-slate-700'}">EFF: ${formattaOra(s.reale)}</p>
+                            </div>
+                        </div>
+                    `;
+
+                    if (shouldCollapse && intermediatePassedIndices.includes(idx)) {
+                        collapsedContainer.appendChild(rigaStazione);
+                    } else {
+                        // Prima di inserire il primo elemento DOPO il gruppo collassato (che sarà ultimoPassatoIdx),
+                        // inseriamo il contenitore collassato e il pulsante per il toggle
+                        if (shouldCollapse && idx === ultimoPassatoIdx) {
+                            container.appendChild(collapsedContainer);
+
+                            const rigaToggle = document.createElement('div');
+                            rigaToggle.id = "toggleCollapsedRow";
+                            rigaToggle.className = "mb-4 ml-12 relative z-10 cursor-pointer group animate-fade-in";
+                            rigaToggle.innerHTML = `
+                                <span class="absolute -left-[37px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full border-2 border-slate-800 bg-slate-950 text-slate-500 group-hover:border-blue-500/50 group-hover:text-blue-400 transition-colors">
+                                    <span id="toggleCollapsedIcon" class="text-[8px] transition-transform duration-200">${isStazioniExpanded ? '▲' : '▼'}</span>
+                                </span>
+                                <div onclick="toggleStazioniPassate()" class="border border-dashed border-slate-800/80 hover:border-slate-700/60 bg-slate-900/20 hover:bg-slate-900/40 p-2.5 rounded-xl text-center text-xs text-slate-500 hover:text-slate-300 font-bold tracking-wide transition-all">
+                                    ${isStazioniExpanded ? 'Nascondi stazioni precedenti' : `Mostra altre <span class="font-black text-blue-400 font-mono">${intermediatePassedIndices.length}</span> stazioni già passate`}
+                                </div>
+                            `;
+                            container.appendChild(rigaToggle);
+                        }
+
+                        container.appendChild(rigaStazione);
+                    }
+
+                    // 2. INIEZIONE LOGICA INTERMEDIA (Se il treno ha superato questa stazione, è in viaggio, ed è stato rilevato un punto cieco tecnico)
+                    if (idx === ultimoPassatoIdx && data.ultimoRilevamento.is_tecnico && !data.arrivato) {
+                        const rigaTecnica = document.createElement('div');
+                        rigaTecnica.className = "mb-4 ml-12 relative z-10 animate-fade-in";
+
+                        rigaTecnica.innerHTML = `
+                            <span class="absolute -left-[37px] top-3.5 flex h-4 w-4 items-center justify-center rounded-full border-2 bg-amber-500 border-amber-400 animate-pulse shadow-[0_0_14px_rgba(245,158,11,0.6)]"></span>
+                            
+                            <div class="bg-amber-950/10 border border-amber-900/30 p-2.5 rounded-xl ml-1 flex justify-between items-center bg-gradient-to-r from-amber-950/20 to-transparent">
+                                <div class="text-xs text-amber-400 font-mono tracking-wider flex items-center gap-2">
+                                    <span class="text-sm">⚙️</span> TRANSITATO DA: <span class="font-black text-amber-200 underline decoration-amber-500/50">${data.ultimoRilevamento.nodo}</span>
+                                </div>
+                                <div class="text-[10px] font-mono text-amber-400/90 font-bold bg-amber-900/30 px-2.5 py-1 rounded-md border border-amber-800/40 shadow-inner">
+                                    ⏱️ ${data.ultimoRilevamento.ora}
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(rigaTecnica);
+                    }
+                });
+
+                // Gestione dell'Auto Refresh a seconda di come è stata avviata la ricerca
+                if (!isAuto) {
+                    // Ricerca manuale: attiviamo l'auto refresh (se il treno non è già arrivato)
+                    attivaAutoRefresh(data.arrivato);
+                } else {
+                    // Aggiornamento automatico periodico: se il treno è arrivato, lo fermiamo del tutto
+                    if (data.arrivato) {
+                        disattivaAutoRefresh(true);
+                    } else {
+                        // Resetta il tempo rimanente per il ciclo successivo
+                        refreshSecondsLeft = REFRESH_PERIOD;
+                    }
+                }
+
+            } catch (err) {
+                if (!isAuto) {
+                    loader.classList.add('hidden');
+                    alert("Impossibile tracciare il convoglio. Verificare che il treno sia sui binari in questo esatto momento.");
+                } else {
+                    console.error("Auto-refresh fallito (riprovo al prossimo ciclo):", err);
+                    // In caso di errore temporaneo durante l'auto-refresh, lasciamo passare il ciclo
+                    // o accorciamo il tempo di attesa a 10s per riprovare prima
+                    refreshSecondsLeft = 10;
+                }
+            }
+        }
+
+        function aggiornaInterfacciaAutoRefresh() {
+            const ping = document.getElementById('autoRefreshStatusPing');
+            const dot = document.getElementById('autoRefreshStatusDot');
+            const text = document.getElementById('autoRefreshStatusText');
+            const btn = document.getElementById('btnToggleAutoRefresh');
+
+            if (isAutoRefreshActive) {
+                ping.classList.remove('hidden');
+                dot.className = "relative inline-flex rounded-full h-3 w-3 bg-emerald-500";
+                text.innerText = `Prossimo controllo in ${refreshSecondsLeft}s`;
+                btn.innerText = "SOSPENDI";
+                btn.className = "bg-amber-950/20 hover:bg-amber-950/40 text-amber-400 border border-amber-900/30 font-mono text-[10px] font-black tracking-wider px-3.5 py-1.5 rounded-lg transition-all cursor-pointer active:scale-98 shadow-sm";
+            } else {
+                ping.classList.add('hidden');
+                dot.className = "relative inline-flex rounded-full h-3 w-3 bg-slate-600";
+                text.innerText = "Aggiornamento automatico in pausa";
+                btn.innerText = "ATTIVA";
+                btn.className = "bg-blue-950/20 hover:bg-blue-950/40 text-blue-400 border border-blue-900/30 font-mono text-[10px] font-black tracking-wider px-3.5 py-1.5 rounded-lg transition-all cursor-pointer active:scale-98 shadow-sm";
+            }
+        }
+
+        function attivaAutoRefresh(arrivato = false) {
+            const widget = document.getElementById('autoRefreshWidget');
+            const btn = document.getElementById('btnToggleAutoRefresh');
+
+            if (arrivato) {
+                disattivaAutoRefresh(false);
+                widget.classList.add('hidden');
+                return;
+            }
+
+            widget.classList.remove('hidden');
+            btn.classList.remove('hidden');
+            isAutoRefreshActive = true;
+            refreshSecondsLeft = REFRESH_PERIOD;
+            aggiornaInterfacciaAutoRefresh();
+
+            // Pulisce eventuali timer rimasti appesi
+            clearInterval(countdownTimer);
+
+            countdownTimer = setInterval(() => {
+                if (isAutoRefreshActive) {
+                    refreshSecondsLeft--;
+                    if (refreshSecondsLeft <= 0) {
+                        refreshSecondsLeft = REFRESH_PERIOD;
+                        cercaTreno(true);
+                    }
+                    aggiornaInterfacciaAutoRefresh();
+                }
+            }, 1000);
+        }
+
+        function disattivaAutoRefresh(viaggioConcluso = false) {
+            isAutoRefreshActive = false;
+            clearInterval(countdownTimer);
+
+            const widget = document.getElementById('autoRefreshWidget');
+            const text = document.getElementById('autoRefreshStatusText');
+            const btn = document.getElementById('btnToggleAutoRefresh');
+
+            if (viaggioConcluso) {
+                widget.classList.remove('hidden');
+                const ping = document.getElementById('autoRefreshStatusPing');
+                const dot = document.getElementById('autoRefreshStatusDot');
+
+                ping.classList.add('hidden');
+                dot.className = "relative inline-flex rounded-full h-3 w-3 bg-emerald-500";
+                text.innerText = "Viaggio concluso. Aggiornamento terminato.";
+                btn.classList.add('hidden'); // Nasconde il pulsante visto che non serve più
+            } else {
+                aggiornaInterfacciaAutoRefresh();
+            }
+        }
+
+        function toggleAutoRefresh() {
+            if (isAutoRefreshActive) {
+                disattivaAutoRefresh(false);
+            } else {
+                // Riattiva l'auto refresh (senza flag arrivato, gestito nel flusso iniziale)
+                attivaAutoRefresh(false);
+            }
+        }
+
+        function toggleStazioniPassate() {
+            const collapsed = document.getElementById('collapsedStazioni');
+            const icon = document.getElementById('toggleCollapsedIcon');
+            const textSpan = document.querySelector('#toggleCollapsedRow div');
+            const count = collapsed.children.length;
+
+            if (collapsed.classList.contains('hidden')) {
+                collapsed.classList.remove('hidden');
+                icon.innerText = "▲";
+                textSpan.innerHTML = `Nascondi stazioni precedenti`;
+                isStazioniExpanded = true;
+            } else {
+                collapsed.classList.add('hidden');
+                icon.innerText = "▼";
+                textSpan.innerHTML = `Mostra altre <span class="font-black text-blue-400 font-mono">${count}</span> stazioni già passate`;
+                isStazioniExpanded = false;
+            }
+        }
+    </script>
+</body>
+
+</html>
