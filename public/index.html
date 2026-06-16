@@ -7,18 +7,6 @@
     <title>Live Train Tracker - Control Panel</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
-        /* Custom gradient for the vertical timeline line */
-        .timeline-line::before {
-            content: '';
-            position: absolute;
-            left: 23px;
-            top: 24px;
-            bottom: 24px;
-            width: 2px;
-            background: linear-gradient(to bottom, #3b82f6 var(--passed-route, 0%), #1e293b var(--passed-route, 0%));
-            z-index: 0;
-        }
-
         @keyframes fadeIn {
             from {
                 opacity: 0;
@@ -39,77 +27,138 @@
 
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen p-4 md:p-8 selection:bg-blue-500/30">
 
-    <div class="max-w-xl mx-auto">
+    <div class="max-w-3xl mx-auto">
         <header class="text-center mb-8">
             <h1
                 class="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">
                 🚆 LIVE TRAIN TRACKER
             </h1>
-            <p class="text-xs text-slate-500 mt-1 font-mono">VIA RANDOM CODES UNTIL IT WORKED v2.0</p>
+            <p class="text-xs text-slate-500 mt-1 font-mono">VIA RANDOM CODES UNTIL IT WORKED v2.1</p>
         </header>
 
-        <div
-            class="flex gap-2 bg-slate-900/80 p-2 rounded-2xl border border-slate-800/80 shadow-2xl mb-6 backdrop-blur-md">
-            <input type="text" id="trainInput" placeholder="Enter train number (e.g. 17296 or 9544)"
-                class="w-full px-4 py-3 bg-transparent rounded-xl focus:outline-none text-base placeholder:text-slate-600 font-mono tracking-wider"
-                onkeypress="if(event.key === 'Enter') searchTrain()">
-            <button onclick="searchTrain()"
-                class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-blue-900/40 cursor-pointer active:scale-98">
-                Track
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-slate-800/80 mb-6 font-semibold text-sm">
+            <button onclick="switchTab('tracker')" id="tab-tracker"
+                class="flex-1 pb-3 text-center border-b-2 border-blue-500 text-blue-400 transition-all cursor-pointer">
+                🔍 Track Train
+            </button>
+            <button onclick="switchTab('boards')" id="tab-boards"
+                class="flex-1 pb-3 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all cursor-pointer">
+                📋 Station Boards
             </button>
         </div>
 
-        <!-- Auto Refresh Control Widget -->
-        <div id="autoRefreshWidget"
-            class="hidden bg-slate-900/40 border border-slate-800/60 p-4 rounded-2xl flex items-center justify-between transition-all duration-300 backdrop-blur-md mb-6 animate-fade-in">
-            <div class="flex items-center gap-3">
-                <span class="relative flex h-3 w-3">
-                    <span id="autoRefreshStatusPing"
-                        class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
-                    <span id="autoRefreshStatusDot"
-                        class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                </span>
-                <div>
-                    <p class="text-xs font-bold tracking-wide text-slate-200">Auto Refresh</p>
-                    <p id="autoRefreshStatusText" class="text-[10px] font-mono text-slate-500 mt-0.5">Next check
-                        in 120s</p>
-                </div>
-            </div>
-            <button id="btnToggleAutoRefresh" onclick="toggleAutoRefresh()"
-                class="bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/60 font-mono text-[10px] font-black tracking-wider px-3.5 py-1.5 rounded-lg transition-all cursor-pointer active:scale-98 shadow-sm">
-                PAUSE
-            </button>
-        </div>
-
-        <div id="loader" class="hidden text-center py-8">
+        <!-- Section: Train Tracker -->
+        <div id="section-tracker" class="space-y-6">
             <div
-                class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]">
+                class="flex gap-2 bg-slate-900/80 p-2 rounded-2xl border border-slate-800/80 shadow-2xl backdrop-blur-md">
+                <input type="text" id="trainInput" placeholder="Enter train number (e.g. 17296 or 9544)"
+                    class="w-full px-4 py-3 bg-transparent rounded-xl focus:outline-none text-base placeholder:text-slate-600 font-mono tracking-wider"
+                    onkeypress="if(event.key === 'Enter') searchTrain()">
+                <button onclick="searchTrain()"
+                    class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-blue-900/40 cursor-pointer active:scale-98">
+                    Track
+                </button>
             </div>
-            <p class="text-xs text-slate-500 font-mono mt-2">Querying peripheral nodes...</p>
-        </div>
 
-        <div id="infoBox"
-            class="hidden bg-slate-900 border border-slate-800/60 rounded-2xl p-5 mb-6 shadow-xl transition-all duration-300">
-            <div class="flex justify-between items-start mb-4">
-                <div>
-                    <span id="txtCategory"
-                        class="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-black tracking-widest px-2.5 py-1 rounded-md uppercase mr-2 font-mono"></span>
-                    <h2 id="txtTrain" class="text-2xl font-black inline-block tracking-tight text-white"></h2>
+            <!-- Auto Refresh Control Widget -->
+            <div id="autoRefreshWidget"
+                class="hidden bg-slate-900/40 border border-slate-800/60 p-4 rounded-2xl flex items-center justify-between transition-all duration-300 backdrop-blur-md flex items-center justify-between animate-fade-in">
+                <div class="flex items-center gap-3">
+                    <span class="relative flex h-3 w-3">
+                        <span id="autoRefreshStatusPing"
+                            class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
+                        <span id="autoRefreshStatusDot"
+                            class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                    <div>
+                        <p class="text-xs font-bold tracking-wide text-slate-200">Auto Refresh</p>
+                        <p id="autoRefreshStatusText" class="text-[10px] font-mono text-slate-500 mt-0.5">Next check
+                            in 120s</p>
+                    </div>
                 </div>
-                <span id="txtDelay" class="text-xs font-bold px-3 py-1.5 rounded-lg font-mono"></span>
+                <button id="btnToggleAutoRefresh" onclick="toggleAutoRefresh()"
+                    class="bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/60 font-mono text-[10px] font-black tracking-wider px-3.5 py-1.5 rounded-lg transition-all cursor-pointer active:scale-98 shadow-sm">
+                    PAUSE
+                </button>
             </div>
-            <div class="flex items-center gap-2 text-slate-400 text-sm font-semibold border-t border-slate-800/60 pt-3">
-                <span class="text-blue-500">🛤️</span>
-                <p id="txtRoute" class="tracking-wide"></p>
+
+            <div id="loader" class="hidden text-center py-8">
+                <div
+                    class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]">
+                </div>
+                <p class="text-xs text-slate-500 font-mono mt-2">Querying peripheral nodes...</p>
+            </div>
+
+            <div id="infoBox"
+                class="hidden bg-slate-900 border border-slate-800/60 rounded-2xl p-5 shadow-xl transition-all duration-300">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <span id="txtCategory"
+                            class="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-black tracking-widest px-2.5 py-1 rounded-md uppercase mr-2 font-mono"></span>
+                        <h2 id="txtTrain" class="text-2xl font-black inline-block tracking-tight text-white"></h2>
+                    </div>
+                    <span id="txtDelay" class="text-xs font-bold px-3 py-1.5 rounded-lg font-mono"></span>
+                </div>
+                <div
+                    class="flex items-center gap-2 text-slate-400 text-sm font-semibold border-t border-slate-800/60 pt-3">
+                    <span class="text-blue-500">🛤️</span>
+                    <p id="txtRoute" class="tracking-wide"></p>
+                </div>
+            </div>
+
+            <div id="timelineContainer" class="relative hidden">
+                <div id="txtLastDetection"
+                    class="text-xs text-slate-400 bg-slate-900 border border-slate-800 rounded-xl p-3 mb-6 font-mono flex items-center gap-2">
+                </div>
+
+                <div id="timeline" class="relative space-y-0 pl-1">
+                </div>
             </div>
         </div>
 
-        <div id="timelineContainer" class="relative hidden">
-            <div id="txtLastDetection"
-                class="text-xs text-slate-400 bg-slate-900 border border-slate-800 rounded-xl p-3 mb-6 font-mono flex items-center gap-2">
+        <!-- Section: Station Boards -->
+        <div id="section-boards" class="hidden space-y-6">
+            <div
+                class="relative z-30 bg-slate-900/80 p-2 rounded-2xl border border-slate-800/80 shadow-2xl backdrop-blur-md">
+                <div class="flex gap-2">
+                    <input type="text" id="stationInput" placeholder="Enter station name (e.g. Milano, Roma)"
+                        class="w-full px-4 py-3 bg-transparent rounded-xl focus:outline-none text-base placeholder:text-slate-600 font-mono tracking-wider"
+                        oninput="handleStationInput(this.value)" onkeydown="handleStationKeydown(event)">
+                    <button onclick="searchStationBoard()"
+                        class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-blue-900/40 cursor-pointer active:scale-98">
+                        Search
+                    </button>
+                </div>
+                <!-- Autocomplete Dropdown suggestions -->
+                <div id="stationSuggestions"
+                    class="hidden absolute left-0 right-0 top-[105%] bg-slate-900 border border-slate-800 rounded-xl shadow-2xl max-h-60 overflow-y-auto z-50">
+                </div>
             </div>
 
-            <div id="timeline" class="timeline-line relative space-y-0 pl-1">
+            <!-- Segmented controls for Departures / Arrivals -->
+            <div id="boardControls"
+                class="hidden flex gap-2 justify-center bg-slate-900/40 border border-slate-800/60 p-1.5 rounded-2xl backdrop-blur-md">
+                <button id="btnDepartures" onclick="switchBoardDirection('departures')"
+                    class="flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer bg-blue-600 text-white shadow-md shadow-blue-900/20">
+                    🛫 DEPARTURES
+                </button>
+                <button id="btnArrivals" onclick="switchBoardDirection('arrivals')"
+                    class="flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer text-slate-400 hover:text-slate-200">
+                    🛬 ARRIVALS
+                </button>
+            </div>
+
+            <!-- Board Loader -->
+            <div id="boardLoader" class="hidden text-center py-8">
+                <div
+                    class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]">
+                </div>
+                <p class="text-xs text-slate-500 font-mono mt-2">Retrieving live station board...</p>
+            </div>
+
+            <!-- Board Results Container -->
+            <div id="boardResults" class="hidden space-y-3">
             </div>
         </div>
     </div>
@@ -121,6 +170,64 @@
             return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
         }
 
+        // Helper to calculate exact offset Y of element relative to container
+        function getRelativeY(element, container) {
+            let y = 0;
+            let curr = element;
+            while (curr && curr !== container) {
+                y += curr.offsetTop;
+                curr = curr.offsetParent;
+            }
+            return y;
+        }
+
+        // Helper to update heights and positions of the vertical timeline line dynamically
+        function updateTimelineHeights() {
+            const container = document.getElementById('timeline');
+            const dots = container.querySelectorAll('.timeline-dot');
+            if (dots.length > 0) {
+                const firstDot = dots[0];
+                const lastDot = dots[dots.length - 1];
+
+                const firstDotY = getRelativeY(firstDot, container) + 8; // 8px vertical center offset of 16px dot
+                const lastDotY = getRelativeY(lastDot, container) + 8;
+
+                const lineEl = document.getElementById('verticalTimelineLine');
+                if (lineEl) {
+                    lineEl.style.top = firstDotY + 'px';
+                    lineEl.style.height = (lastDotY - firstDotY) + 'px';
+                }
+
+                let lastPassedDot = firstDot;
+                let hasPassed = false;
+                dots.forEach(dot => {
+                    if (dot.classList.contains('bg-blue-600') || dot.classList.contains('bg-amber-500')) {
+                        lastPassedDot = dot;
+                        hasPassed = true;
+                    }
+                });
+
+                const passedLineEl = document.getElementById('verticalTimelineLinePassed');
+                if (passedLineEl) {
+                    if (hasPassed) {
+                        const lastPassedDotY = getRelativeY(lastPassedDot, container) + 8;
+                        passedLineEl.style.height = (lastPassedDotY - firstDotY) + 'px';
+                    } else {
+                        passedLineEl.style.height = '0px';
+                    }
+                }
+            }
+        }
+
+        // Setup ResizeObserver to automatically update timeline heights when layout changes (e.g. initial render settling, collapse toggle)
+        const timelineObserver = new ResizeObserver(() => {
+            updateTimelineHeights();
+        });
+        const timelineContainerEl = document.getElementById('timeline');
+        if (timelineContainerEl) {
+            timelineObserver.observe(timelineContainerEl);
+        }
+
         // Global variables for Auto Refresh management (polling every 2 minutes = 120s)
         let isAutoRefreshActive = false;
         let countdownTimer = null;
@@ -128,9 +235,286 @@
         let refreshSecondsLeft = REFRESH_PERIOD;
         let isStationsExpanded = false; // State of the expansion of passed stations
 
-        async function searchTrain(isAuto = false) {
+        // Station Board Global Variables
+        let selectedStationId = "";
+        let selectedStationName = "";
+        let currentBoardDirection = "departures";
+        let autocompleteTimeout = null;
+        let activeSuggestionIndex = -1;
+        let currentDirectParams = null; // direct query parameters for the currently tracked train
+
+        // Tab Switching Logic
+        function switchTab(tabName) {
+            const secTracker = document.getElementById('section-tracker');
+            const secBoards = document.getElementById('section-boards');
+            const tabTracker = document.getElementById('tab-tracker');
+            const tabBoards = document.getElementById('tab-boards');
+
+            if (tabName === 'tracker') {
+                secTracker.classList.remove('hidden');
+                secBoards.classList.add('hidden');
+
+                tabTracker.className = "flex-1 pb-3 text-center border-b-2 border-blue-500 text-blue-400 transition-all cursor-pointer";
+                tabBoards.className = "flex-1 pb-3 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all cursor-pointer";
+            } else {
+                secTracker.classList.add('hidden');
+                secBoards.classList.remove('hidden');
+
+                tabBoards.className = "flex-1 pb-3 text-center border-b-2 border-blue-500 text-blue-400 transition-all cursor-pointer";
+                tabTracker.className = "flex-1 pb-3 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all cursor-pointer";
+
+                document.getElementById('stationSuggestions').classList.add('hidden');
+            }
+        }
+
+        // Station Search Autocomplete Logic
+        function handleStationInput(val) {
+            clearTimeout(autocompleteTimeout);
+            activeSuggestionIndex = -1;
+
+            // Immediately hide board controls and results to avoid clutter during typing
+            document.getElementById('boardControls').classList.add('hidden');
+            document.getElementById('boardResults').classList.add('hidden');
+
+            if (val.trim().length < 2) {
+                document.getElementById('stationSuggestions').classList.add('hidden');
+                return;
+            }
+
+            autocompleteTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/stations/search?q=${encodeURIComponent(val)}`);
+                    if (!res.ok) throw new Error("Search failed");
+                    const data = await res.json();
+
+                    const dropdown = document.getElementById('stationSuggestions');
+                    dropdown.innerHTML = '';
+
+                    if (data.length === 0) {
+                        dropdown.classList.add('hidden');
+                        return;
+                    }
+
+                    data.forEach((station, index) => {
+                        const item = document.createElement('div');
+                        item.className = "px-4 py-2.5 hover:bg-slate-800 text-sm text-slate-200 cursor-pointer font-medium border-b border-slate-800/40 last:border-b-0 transition-colors";
+                        item.innerText = station.name;
+                        item.dataset.index = index;
+                        item.onclick = () => selectStationSuggestion(station.name, station.id);
+                        dropdown.appendChild(item);
+                    });
+
+                    dropdown.classList.remove('hidden');
+                } catch (err) {
+                    console.error("Autocomplete error:", err);
+                }
+            }, 250);
+        }
+
+        function handleStationKeydown(e) {
+            const dropdown = document.getElementById('stationSuggestions');
+            if (dropdown.classList.contains('hidden')) return;
+
+            const items = dropdown.querySelectorAll('div');
+            if (items.length === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeSuggestionIndex = (activeSuggestionIndex + 1) % items.length;
+                updateSuggestionHighlight(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeSuggestionIndex = (activeSuggestionIndex - 1 + items.length) % items.length;
+                updateSuggestionHighlight(items);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (activeSuggestionIndex >= 0 && activeSuggestionIndex < items.length) {
+                    items[activeSuggestionIndex].click();
+                } else if (items.length > 0) {
+                    items[0].click();
+                }
+            } else if (e.key === 'Escape') {
+                dropdown.classList.add('hidden');
+            }
+        }
+
+        function updateSuggestionHighlight(items) {
+            items.forEach((item, index) => {
+                if (index === activeSuggestionIndex) {
+                    item.classList.add('bg-slate-800');
+                    item.scrollIntoView({ block: 'nearest' });
+                } else {
+                    item.classList.remove('bg-slate-800');
+                }
+            });
+        }
+
+        function selectStationSuggestion(name, id) {
+            document.getElementById('stationInput').value = name;
+            selectedStationId = id;
+            selectedStationName = name;
+            document.getElementById('stationSuggestions').classList.add('hidden');
+            searchStationBoard();
+        }
+
+        // Close suggestions dropdown when clicking outside
+        document.addEventListener('click', function (e) {
+            const dropdown = document.getElementById('stationSuggestions');
+            const input = document.getElementById('stationInput');
+            if (dropdown && input && e.target !== dropdown && e.target !== input) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        // Search Board Logic
+        async function searchStationBoard() {
+            const val = document.getElementById('stationInput').value.trim();
+            if (!val) return;
+
+            if (!selectedStationId || selectedStationName !== val) {
+                const dropdown = document.getElementById('stationSuggestions');
+                const firstItem = dropdown.querySelector('div');
+                if (firstItem) {
+                    firstItem.click();
+                    return;
+                } else {
+                    try {
+                        const res = await fetch(`/api/stations/search?q=${encodeURIComponent(val)}`);
+                        const data = await res.json();
+                        if (data && data.length > 0) {
+                            selectStationSuggestion(data[0].name, data[0].id);
+                            return;
+                        } else {
+                            alert("Station not found. Please type and choose a station from the list.");
+                            return;
+                        }
+                    } catch (e) {
+                        alert("Error searching station.");
+                        return;
+                    }
+                }
+            }
+
+            const loader = document.getElementById('boardLoader');
+            const results = document.getElementById('boardResults');
+            const controls = document.getElementById('boardControls');
+
+            loader.classList.remove('hidden');
+            results.classList.add('hidden');
+
+            try {
+                const res = await fetch(`/api/stations/${selectedStationId}/board?direction=${currentBoardDirection}`);
+                if (!res.ok) throw new Error("Failed to load board");
+                const data = await res.json();
+
+                loader.classList.add('hidden');
+                controls.classList.remove('hidden');
+                results.classList.remove('hidden');
+
+                results.innerHTML = '';
+                if (data.length === 0) {
+                    results.innerHTML = `
+                        <div class="text-center py-8 text-slate-500 text-xs font-mono border border-slate-800/40 rounded-2xl bg-slate-900/10">
+                            No trains currently scheduled for this direction.
+                        </div>
+                    `;
+                    return;
+                }
+
+                data.forEach(item => {
+                    const row = document.createElement('div');
+                    row.onclick = () => selectTrainFromBoard(item.number, item.originStationId, item.departureTimestamp);
+
+                    const isDelay = item.delay > 0;
+                    const delayText = isDelay ? `+${item.delay} min` : 'ON TIME';
+                    const delayBadgeClass = isDelay
+                        ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+
+                    const routeText = currentBoardDirection === 'departures'
+                        ? `➔ <span class="text-slate-100 font-bold">${item.destination}</span>`
+                        : `⬅ <span class="text-slate-100 font-bold">${item.origin}</span>`;
+
+                    row.className = "group bg-slate-900/60 border border-slate-800/80 hover:border-blue-500/40 p-4 rounded-xl flex items-center justify-between transition-all duration-200 cursor-pointer active:scale-[0.99] hover:bg-slate-900/90 shadow-md animate-fade-in";
+
+                    row.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="flex flex-col">
+                                <span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-black tracking-wider px-2 py-0.5 rounded font-mono text-center mb-1 w-fit">
+                                    ${item.category} ${item.number}
+                                </span>
+                                <span class="text-xs text-slate-400 max-w-[150px] sm:max-w-[200px] truncate">
+                                    ${routeText}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-4 sm:gap-6">
+                            <div class="text-right font-mono">
+                                <p class="text-[9px] text-slate-500">SCHED</p>
+                                <p class="text-xs font-bold text-slate-100">${item.scheduledTime}</p>
+                            </div>
+                            
+                            <div class="text-right font-mono">
+                                <p class="text-[9px] text-slate-500">PLATFORM</p>
+                                <p class="text-xs font-bold ${item.actualPlatform !== '-' && item.actualPlatform !== item.scheduledPlatform ? 'text-blue-400' : 'text-slate-300'}">
+                                    ${item.actualPlatform !== '-' ? item.actualPlatform : item.scheduledPlatform}
+                                </p>
+                            </div>
+
+                            <div class="text-right min-w-[75px] sm:min-w-[85px]">
+                                <span class="text-[9px] font-black px-2 py-1 rounded font-mono ${delayBadgeClass}">
+                                    ${delayText}
+                                </span>
+                            </div>
+                            
+                            <span class="text-slate-600 group-hover:text-blue-400 transition-colors text-sm font-bold font-mono">➔</span>
+                        </div>
+                    `;
+                    results.appendChild(row);
+                });
+            } catch (err) {
+                loader.classList.add('hidden');
+                alert("Error loading board. Please try again.");
+            }
+        }
+
+        function switchBoardDirection(dir) {
+            currentBoardDirection = dir;
+            const btnDep = document.getElementById('btnDepartures');
+            const btnArr = document.getElementById('btnArrivals');
+
+            if (dir === 'departures') {
+                btnDep.className = "flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer bg-blue-600 text-white shadow-md shadow-blue-900/20";
+                btnArr.className = "flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer text-slate-400 hover:text-slate-200";
+            } else {
+                btnArr.className = "flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer bg-blue-600 text-white shadow-md shadow-blue-900/20";
+                btnDep.className = "flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer text-slate-400 hover:text-slate-200";
+            }
+
+            searchStationBoard();
+        }
+
+        function selectTrainFromBoard(number, originStationId, departureTimestamp) {
+            document.getElementById('trainInput').value = number;
+            switchTab('tracker');
+            searchTrain(false, {
+                station_id: originStationId,
+                departure_timestamp: departureTimestamp
+            });
+        }
+
+        // Train Tracking Logic (Integrated with Direct Parameters)
+        async function searchTrain(isAuto = false, directParams = null) {
             const number = document.getElementById('trainInput').value.trim();
             if (!number) return;
+
+            // Manage direct query parameters across refreshes
+            if (directParams) {
+                currentDirectParams = directParams;
+            } else if (!isAuto) {
+                currentDirectParams = null; // reset if manual search box search is executed
+            }
 
             // Reset and activate loader
             const loader = document.getElementById('loader');
@@ -147,7 +531,11 @@
             }
 
             try {
-                const res = await fetch(`/api/train/${number}`);
+                let url = `/api/train/${number}`;
+                if (currentDirectParams) {
+                    url += `?station_id=${currentDirectParams.station_id}&departure_timestamp=${currentDirectParams.departure_timestamp}`;
+                }
+                const res = await fetch(url);
                 if (!res.ok) throw new Error("Train not found");
                 const data = await res.json();
 
@@ -172,7 +560,12 @@
                 }
 
                 const container = document.getElementById('timeline');
-                container.innerHTML = ''; // Clear previous timeline
+                container.innerHTML = `
+                    <!-- Dynamic Background Line -->
+                    <div id="verticalTimelineLine" class="absolute left-[23px] w-[2px] bg-slate-600 z-0">
+                        <div id="verticalTimelineLinePassed" class="w-full bg-blue-500 transition-all duration-500" style="height: 0px;"></div>
+                    </div>
+                `;
 
                 // Calculate indexes for the graphical management of the background vertical bar
                 let lastPassedIdx = -1;
@@ -182,12 +575,7 @@
                     }
                 });
 
-                // Dynamic calculation of the completion percentage to fade the timeline line
-                const linePercentage = data.stations.length > 1 ? (lastPassedIdx / (data.stations.length - 1)) * 100 : 0;
-                document.querySelector('.timeline-line').style.setProperty('--passed-route', `${linePercentage}%`);
-
                 // Identify which stations are "passed intermediate"
-                // These are passed stations (s.passed === true) that are NOT the first one (idx > 0) and NOT the last passed one (idx < lastPassedIdx)
                 const intermediatePassedIndices = [];
                 data.stations.forEach((s, idx) => {
                     if (s.passed && idx > 0 && idx < lastPassedIdx) {
@@ -220,7 +608,7 @@
                     }
 
                     stationRow.innerHTML = `
-                        <span class="absolute -left-[37px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full border-2 ${dotClass}"></span>
+                        <span class="timeline-dot absolute -left-[37px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full border-2 ${dotClass}"></span>
                         
                         <div class="flex justify-between items-start border p-2.5 rounded-xl transition-all duration-200 hover:bg-slate-900/90 ${containerClass}">
                             <div>
@@ -240,8 +628,6 @@
                     if (shouldCollapse && intermediatePassedIndices.includes(idx)) {
                         collapsedContainer.appendChild(stationRow);
                     } else {
-                        // Before inserting the first element AFTER the collapsed group (which will be lastPassedIdx),
-                        // we insert the collapsed container and the toggle button
                         if (shouldCollapse && idx === lastPassedIdx) {
                             container.appendChild(collapsedContainer);
 
@@ -262,13 +648,13 @@
                         container.appendChild(stationRow);
                     }
 
-                    // 2. INTERMEDIATE LOGIC INJECTION (If the train has passed this station, is in transit, and a technical blind spot has been detected)
+                    // 2. INTERMEDIATE LOGIC INJECTION
                     if (idx === lastPassedIdx && data.lastDetection.is_technical && !data.arrived) {
                         const technicalRow = document.createElement('div');
                         technicalRow.className = "mb-4 ml-12 relative z-10 animate-fade-in";
 
                         technicalRow.innerHTML = `
-                            <span class="absolute -left-[37px] top-3.5 flex h-4 w-4 items-center justify-center rounded-full border-2 bg-amber-500 border-amber-400 animate-pulse shadow-[0_0_14px_rgba(245,158,11,0.6)]"></span>
+                            <span class="timeline-dot absolute -left-[37px] top-3.5 flex h-4 w-4 items-center justify-center rounded-full border-2 bg-amber-500 border-amber-400 animate-pulse shadow-[0_0_14px_rgba(245,158,11,0.6)]"></span>
                             
                             <div class="bg-amber-950/10 border border-amber-900/30 p-2.5 rounded-xl ml-1 flex justify-between items-center bg-gradient-to-r from-amber-950/20 to-transparent">
                                 <div class="text-xs text-amber-400 font-mono tracking-wider flex items-center gap-2">
@@ -283,16 +669,15 @@
                     }
                 });
 
-                // Auto Refresh management depending on how the search was started
+                // Calculate and update vertical timeline line heights
+                updateTimelineHeights();
+
                 if (!isAuto) {
-                    // Manual search: activate auto refresh (if the train has not arrived yet)
                     activateAutoRefresh(data.arrived);
                 } else {
-                    // Periodic automatic update: if the train has arrived, stop it completely
                     if (data.arrived) {
                         deactivateAutoRefresh(true);
                     } else {
-                        // Reset remaining time for the next cycle
                         refreshSecondsLeft = REFRESH_PERIOD;
                     }
                 }
@@ -302,8 +687,7 @@
                     loader.classList.add('hidden');
                     alert("Unable to track the train. Please check if the train is currently running.");
                 } else {
-                    console.error("Auto-refresh failed (retrying in next cycle):", err);
-                    // In case of a temporary error during auto-refresh, let the cycle pass or shorten the wait time to 10s to retry sooner
+                    console.error("Auto-refresh failed:", err);
                     refreshSecondsLeft = 10;
                 }
             }
@@ -346,7 +730,6 @@
             refreshSecondsLeft = REFRESH_PERIOD;
             updateAutoRefreshInterface();
 
-            // Clear any lingering timers
             clearInterval(countdownTimer);
 
             countdownTimer = setInterval(() => {
@@ -377,7 +760,7 @@
                 ping.classList.add('hidden');
                 dot.className = "relative inline-flex rounded-full h-3 w-3 bg-emerald-500";
                 text.innerText = "Trip completed. Update finished.";
-                btn.classList.add('hidden'); // Hide the button as it is no longer needed
+                btn.classList.add('hidden');
             } else {
                 updateAutoRefreshInterface();
             }
@@ -387,11 +770,11 @@
             if (isAutoRefreshActive) {
                 deactivateAutoRefresh(false);
             } else {
-                // Reactivate auto refresh (without arrived flag, handled in the initial flow)
                 activateAutoRefresh(false);
             }
         }
 
+        // Toggle Expand Stations
         function toggleStationsPassed() {
             const collapsed = document.getElementById('collapsedStations');
             const icon = document.getElementById('toggleCollapsedIcon');
@@ -409,6 +792,9 @@
                 textSpan.innerHTML = `Show <span class="font-black text-blue-400 font-mono">${count}</span> more passed stations`;
                 isStationsExpanded = false;
             }
+
+            // Recalculate heights after expansion/collapse transitions
+            updateTimelineHeights();
         }
     </script>
 </body>
